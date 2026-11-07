@@ -1,5 +1,10 @@
 EasyMacros = EasyMacros or {}
 
+-- Forever-compatible create/pickup matches notstraws/MacroActionBar (Macro Spellbook):
+--   CreateMacro(name, icon, body, perCharacter)
+--   PickupMacro(index)
+-- No MacroFrame mediation. Drag from the addon UI onto action bars.
+
 local function AccountMacroLimit()
   return MAX_ACCOUNT_MACROS or 120
 end
@@ -16,8 +21,8 @@ local function MacroInfoAt(index)
   if not GetMacroInfo then
     return nil
   end
-  local ok, name, icon, body = pcall(GetMacroInfo, index)
-  if not ok or type(name) ~= "string" or name == "" then
+  local name, icon, body = GetMacroInfo(index)
+  if type(name) ~= "string" or name == "" then
     return nil
   end
   return {
@@ -45,64 +50,6 @@ local function CharacterSlotsFree()
   return limit - numCharacter
 end
 
--- Create or update a character macro. Never creates a second copy of the same name.
--- Returns: index, created (bool), unchanged (bool)
-function EasyMacros.CreateOrUpdateCharacterMacro(name, body)
-  if InCombatLockdown and InCombatLockdown() then
-    EasyMacros.Print("Leave combat before creating macros.")
-    return nil
-  end
-  if MacroFrame and MacroFrame:IsShown() then
-    EasyMacros.Print("Close the macro window first.")
-    return nil
-  end
-
-  name = EasyMacros.MacroNameForSpell(name)
-  body = body or ""
-  local icon = EasyMacros.NO_ICON or "INV_MISC_QUESTIONMARK"
-
-  local existing = FindCharacterMacro(name)
-  if existing then
-    if existing.body == body then
-      return existing.index, false, true
-    end
-    local ok, err = pcall(EditMacro, existing.index, name, icon, body)
-    if not ok then
-      EasyMacros.Print("Could not update macro: " .. tostring(err))
-      return nil
-    end
-    return existing.index, false, false
-  end
-
-  if CharacterSlotsFree() <= 0 then
-    EasyMacros.Print("No free character macro slots.")
-    return nil
-  end
-
-  -- Forever/Classic treat integer 1 as false here; must pass boolean true
-  -- or the macro is silently created in the General tab.
-  local ok, result = pcall(CreateMacro, name, icon, body, true)
-  if not ok then
-    EasyMacros.Print("Could not create macro: " .. tostring(result))
-    return nil
-  end
-
-  local index = (type(result) == "number" and result > 0) and result or nil
-  if not index then
-    local found = FindCharacterMacro(name)
-    index = found and found.index or nil
-  end
-  if not index then
-    EasyMacros.Print("Macro was created but not found in character slots.")
-    return nil
-  end
-  if index <= AccountMacroLimit() then
-    EasyMacros.Print("Macro landed in General slots instead of character slots.")
-    return nil
-  end
-  return index, true, false
-end
-
 local function TypeNote(preview)
   if preview.spellType == EasyMacros.TEMPLATE_HELP then
     return " (help / mouseover)"
@@ -110,10 +57,10 @@ local function TypeNote(preview)
   if preview.spellType == EasyMacros.TEMPLATE_SELF then
     return " (self)"
   end
-  if preview.includePet then
-    return " (combat, with /petattack)"
+  if EasyMacros.IsPetClass and EasyMacros.IsPetClass() then
+    return " (combat, /petattack)"
   end
-  return " (combat, no /petattack)"
+  return " (combat)"
 end
 
 local function BuildResult(spell, preview, index, created, unchanged)
@@ -132,7 +79,7 @@ local function BuildResult(spell, preview, index, created, unchanged)
   if unchanged then
     EasyMacros.Print("Already have \"" .. preview.name .. "\"" .. note .. ".")
   elseif created then
-    EasyMacros.Print("Created \"" .. preview.name .. "\"" .. note .. ".")
+    EasyMacros.Print("Created \"" .. preview.name .. "\"" .. note .. ". Drag it onto your bar.")
   else
     EasyMacros.Print("Updated \"" .. preview.name .. "\"" .. note .. ".")
   end
@@ -147,13 +94,55 @@ local function BuildResult(spell, preview, index, created, unchanged)
     spellId = spell.spellId,
     spellName = spell.name,
     icon = icon,
-    includePet = preview.includePet,
   }
 end
 
--- CreateMacro/EditMacro taint action bars for the session. Run them off the
--- drag/click stack, and skip writes when the body is already identical.
--- onDone(result) is optional; result is nil on failure.
+-- Create or update a character macro (MacroActionBar-style plain API).
+-- Returns: index, created (bool), unchanged (bool)
+function EasyMacros.CreateOrUpdateCharacterMacro(name, body)
+  if InCombatLockdown and InCombatLockdown() then
+    EasyMacros.Print("Leave combat before creating macros.")
+    return nil
+  end
+
+  name = EasyMacros.MacroNameForSpell(name)
+  body = body or ""
+  local icon = EasyMacros.NO_ICON or "INV_MISC_QUESTIONMARK"
+
+  local existing = FindCharacterMacro(name)
+  if existing then
+    if existing.body == body then
+      return existing.index, false, true
+    end
+    EditMacro(existing.index, name, icon, body)
+    return existing.index, false, false
+  end
+
+  if CharacterSlotsFree() <= 0 then
+    EasyMacros.Print("No free character macro slots.")
+    return nil
+  end
+
+  -- Forever/Classic: boolean true for character macros (integer 1 is wrong on Forever).
+  local result = CreateMacro(name, icon, body, true)
+
+  local index = (type(result) == "number" and result > 0) and result or nil
+  if not index then
+    local found = FindCharacterMacro(name)
+    index = found and found.index or nil
+  end
+  if not index then
+    EasyMacros.Print("Macro was created but not found in character slots.")
+    return nil
+  end
+  if index <= AccountMacroLimit() then
+    EasyMacros.Print("Macro landed in General slots instead of character slots.")
+    return nil
+  end
+  return index, true, false
+end
+
+-- Call from the Create button OnClick (hardware event).
 function EasyMacros.MakeMacroFromSpell(spell, onDone)
   if type(spell) ~= "table" or type(spell.name) ~= "string" or spell.name == "" then
     EasyMacros.Print("Drop a spell from your spellbook.")
@@ -172,7 +161,6 @@ function EasyMacros.MakeMacroFromSpell(spell, onDone)
     return nil
   end
 
-  -- Fast path: already exists with the same body — no Create/EditMacro call.
   local existing = FindCharacterMacro(preview.name)
   if existing and existing.body == preview.body then
     local result = BuildResult(spell, preview, existing.index, false, true)
@@ -182,29 +170,23 @@ function EasyMacros.MakeMacroFromSpell(spell, onDone)
     return result
   end
 
-  local function Finish()
-    local index, created, unchanged = EasyMacros.CreateOrUpdateCharacterMacro(preview.name, preview.body)
-    local result = index and BuildResult(spell, preview, index, created, unchanged) or nil
-    if onDone then
-      onDone(result)
-    end
+  local index, created, unchanged = EasyMacros.CreateOrUpdateCharacterMacro(preview.name, preview.body)
+  local result = index and BuildResult(spell, preview, index, created, unchanged) or nil
+  -- MacroActionBar picks up on drag; after Create, put it on the cursor so the
+  -- next drop can be straight onto an action bar (same PickupMacro API).
+  if index and PickupMacro and not (InCombatLockdown and InCombatLockdown()) then
+    PickupMacro(index)
   end
-
-  -- Next-frame write so we are not still inside the spell-drop mouse handler
-  -- when action bars react to UPDATE_MACROS.
-  if EasyMacros.After then
-    EasyMacros.After(0, Finish)
-    return nil
+  if onDone then
+    onDone(result)
   end
-  Finish()
-  return nil
+  return result
 end
 
 function EasyMacros.MakeCombatMacroFromSpell(spell, onDone)
   return EasyMacros.MakeMacroFromSpell(spell, onDone)
 end
 
--- Live character macros that this addon tracks (missing ones are pruned).
 function EasyMacros.ListManagedMacros()
   local tracked = EasyMacros.TrackedMacros()
   local live = {}
@@ -227,19 +209,25 @@ function EasyMacros.ListManagedMacros()
   return live
 end
 
-function EasyMacros.PickupManagedMacro(macroIndex)
+-- MacroActionBar smb.pickupMacro: PickupMacro(index) from OnDragStart.
+function EasyMacros.PickupManagedMacro(macroIndex, macroName)
   if InCombatLockdown and InCombatLockdown() then
     EasyMacros.Print("Leave combat before dragging macros.")
     return false
   end
-  macroIndex = tonumber(macroIndex)
-  if not macroIndex or macroIndex <= 0 or not PickupMacro then
+  if not PickupMacro then
     return false
   end
-  local ok, err = pcall(PickupMacro, macroIndex)
-  if not ok then
-    EasyMacros.Print("Could not pick up macro: " .. tostring(err))
+
+  local index = tonumber(macroIndex)
+  if (not index or index <= 0) and type(macroName) == "string" and macroName ~= "" then
+    local info = FindCharacterMacro(macroName)
+    index = info and info.index
+  end
+  if not index or index <= 0 then
     return false
   end
+
+  PickupMacro(index)
   return true
 end

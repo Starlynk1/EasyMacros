@@ -74,14 +74,10 @@ function EasyMacros.CreatePortraitWindow(name, title, width, height)
   end
 
   frame:SetSize(width, height)
-  frame:SetPoint("CENTER")
-  frame:SetFrameStrata("DIALOG")
+  frame:SetFrameStrata("MEDIUM")
   frame:SetClampedToScreen(true)
   frame:EnableMouse(true)
-  frame:SetMovable(true)
-  frame:RegisterForDrag("LeftButton")
-  frame:SetScript("OnDragStart", frame.StartMoving)
-  frame:SetScript("OnDragStop", frame.StopMovingOrSizing)
+  -- Position comes from UIPanelWindows (left/center slots), same as Character/Spellbook.
   if frame.SetDontSavePosition then
     pcall(frame.SetDontSavePosition, frame, true)
   end
@@ -89,19 +85,102 @@ function EasyMacros.CreatePortraitWindow(name, title, width, height)
   SetFrameTitle(frame, title)
   SetFramePortrait(frame, PORTRAIT_ICON)
 
-  if UISpecialFrames then
-    local listed
-    for _, existing in ipairs(UISpecialFrames) do
-      if existing == name then
-        listed = true
-        break
-      end
-    end
-    if not listed then
-      UISpecialFrames[#UISpecialFrames + 1] = name
-    end
-  end
+  EasyMacros.RegisterAsUIPanel(frame, width)
+  EasyMacros.BindPanelCloseButton(frame)
 
   frame:Hide()
   return frame
+end
+
+-- Sit beside Spellbook/Character via Blizzard's panel layout (higher pushable = further right).
+function EasyMacros.RegisterAsUIPanel(frame, width)
+  local name = frame and frame.GetName and frame:GetName()
+  if not name or not UIPanelWindows then
+    return
+  end
+
+  UIPanelWindows[name] = {
+    area = "left",
+    pushable = 4,
+    whileDead = 1,
+    width = width or frame:GetWidth(),
+  }
+
+  -- CloseSpecialWindows() wipes UISpecialFrames when Spellbook opens; stay out of that list.
+  if UISpecialFrames then
+    for index = #UISpecialFrames, 1, -1 do
+      if UISpecialFrames[index] == name then
+        table.remove(UISpecialFrames, index)
+      end
+    end
+  end
+end
+
+function EasyMacros.BindPanelCloseButton(frame)
+  if not frame then
+    return
+  end
+  local close = frame.CloseButton or frame.ClosePanelButton
+  if not close and frame.GetName then
+    close = _G[frame:GetName() .. "CloseButton"]
+  end
+  if not close then
+    return
+  end
+  close:SetScript("OnClick", function()
+    EasyMacros.HideMainFrame()
+  end)
+end
+
+function EasyMacros.ShowMainFrame()
+  local frame = EasyMacros.dropFrame or EasyMacros.CreateDropFrame and EasyMacros.CreateDropFrame()
+  if not frame then
+    return
+  end
+  if ShowUIPanel and UIPanelWindows and UIPanelWindows[frame:GetName()] then
+    ShowUIPanel(frame)
+  else
+    frame:Show()
+  end
+end
+
+function EasyMacros.HideMainFrame()
+  local frame = EasyMacros.dropFrame
+  if not frame then
+    return
+  end
+  if HideUIPanel and UIPanelWindows and UIPanelWindows[frame:GetName()] then
+    HideUIPanel(frame)
+  else
+    frame:Hide()
+  end
+end
+
+local function ResolveSpellbookFrame()
+  return PlayerSpellsFrame or SpellBookFrame
+end
+
+local function FrameUsesUIPanelLayout(frame)
+  if not frame then
+    return false
+  end
+  if frame.GetAttribute and frame:GetAttribute("UIPanelLayout-defined") then
+    return true
+  end
+  local name = frame.GetName and frame:GetName()
+  return name and UIPanelWindows and UIPanelWindows[name] ~= nil
+end
+
+-- If the spellbook is not a UIPanel (or layout skipped us), pin to its right edge.
+function EasyMacros.DockBesideSpellbook()
+  local frame = EasyMacros.dropFrame
+  local book = ResolveSpellbookFrame()
+  if not frame or not frame:IsShown() or not book or not book:IsShown() then
+    return
+  end
+  if FrameUsesUIPanelLayout(book) and FrameUsesUIPanelLayout(frame) then
+    return
+  end
+  frame:ClearAllPoints()
+  frame:SetPoint("TOPLEFT", book, "TOPRIGHT", 12, 0)
 end

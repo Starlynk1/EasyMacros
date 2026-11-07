@@ -4,7 +4,7 @@
 EasyMacros = EasyMacros or {}
 
 EasyMacros.ADDON_NAME = "EasyMacros"
-EasyMacros.VERSION = "1.0.0"
+EasyMacros.VERSION = "1.0.1"
 EasyMacros.NO_ICON = "INV_MISC_QUESTIONMARK"
 -- Macro names are capped at 16 characters by the client.
 EasyMacros.MACRO_NAME_MAX = 16
@@ -19,19 +19,7 @@ function EasyMacros.EnsureDB()
   if type(EasyMacrosDB) ~= "table" then
     EasyMacrosDB = {}
   end
-  if EasyMacrosDB.openSpellbook == nil then
-    -- Default on: the workflow is drag-from-spellbook.
-    EasyMacrosDB.openSpellbook = true
-  end
   return EasyMacrosDB
-end
-
-function EasyMacros.GetOpenSpellbook()
-  return EasyMacros.EnsureDB().openSpellbook and true or false
-end
-
-function EasyMacros.SetOpenSpellbook(enabled)
-  EasyMacros.EnsureDB().openSpellbook = enabled and true or false
 end
 
 -- Per-character list of macros this addon created.

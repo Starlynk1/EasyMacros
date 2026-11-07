@@ -6,27 +6,25 @@ EasyMacros = EasyMacros or {}
 -- Interface/AddOns/Blizzard_APIDocumentationGenerated/SpellDocumentation.lua
 --   C_Spell.IsSelfBuff → aura applies to player only
 --   C_Spell.IsSpellHelpful → can cast on player or other friendlies
+--
+-- Same CreateMacro/PickupMacro pattern as Cobas91/EasyMakro and MacroSpellBook:
+-- real character macros with optional /petattack for pet classes.
 
 EasyMacros.TEMPLATE_COMBAT = "combat"
 EasyMacros.TEMPLATE_HELP = "help"
 EasyMacros.TEMPLATE_SELF = "self"
 
--- Combat offensive spell. /petattack only for pet classes.
+-- Combat offensive spell.
 -- [dead, nohelp] clears a dead enemy; [noexists] then acquires a new one.
-function EasyMacros.BuildCombatMacro(spellName, options)
-  options = options or {}
-  local includePet = options.includePet
-  if includePet == nil then
-    includePet = EasyMacros.IsPetClass()
-  end
-
+-- /petattack only for Hunter / Warlock (same idea as EasyMakro's petAttack opt).
+function EasyMacros.BuildCombatMacro(spellName)
   local lines = {
     "#showtooltip",
     "/cleartarget [dead, nohelp]",
     "/targetenemy [noexists]",
     "/startattack",
   }
-  if includePet then
+  if EasyMacros.IsPetClass and EasyMacros.IsPetClass() then
     lines[#lines + 1] = "/petattack"
   end
   lines[#lines + 1] = "/cast " .. spellName
@@ -45,7 +43,7 @@ function EasyMacros.BuildSelfMacro(spellName)
   return "#showtooltip\n/cast " .. spellName
 end
 
-function EasyMacros.BuildMacroBody(spellName, spellType, options)
+function EasyMacros.BuildMacroBody(spellName, spellType)
   spellType = spellType or EasyMacros.TEMPLATE_COMBAT
   if spellType == EasyMacros.TEMPLATE_HELP then
     return EasyMacros.BuildHelpMacro(spellName)
@@ -53,5 +51,5 @@ function EasyMacros.BuildMacroBody(spellName, spellType, options)
   if spellType == EasyMacros.TEMPLATE_SELF then
     return EasyMacros.BuildSelfMacro(spellName)
   end
-  return EasyMacros.BuildCombatMacro(spellName, options)
+  return EasyMacros.BuildCombatMacro(spellName)
 end

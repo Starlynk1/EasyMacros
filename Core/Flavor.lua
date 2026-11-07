@@ -81,17 +81,6 @@ function EasyMacros.PlayerClassFile()
   return classFile
 end
 
--- Classes that keep a combat pet and benefit from /petattack.
-local PET_CLASSES = {
-  HUNTER = true,
-  WARLOCK = true,
-}
-
-function EasyMacros.IsPetClass(classFile)
-  classFile = classFile or EasyMacros.PlayerClassFile()
-  return classFile and PET_CLASSES[classFile] == true
-end
-
 function EasyMacros.After(delay, callback)
   if C_Timer and C_Timer.After then
     C_Timer.After(delay, callback)
@@ -108,55 +97,53 @@ function EasyMacros.After(delay, callback)
   end)
 end
 
-local function SpellbookAlreadyOpen()
-  if PlayerSpellsFrame and PlayerSpellsFrame.IsShown and PlayerSpellsFrame:IsShown() then
-    if PlayerSpellsUtil and PlayerSpellsUtil.FrameTabs and PlayerSpellsFrame.IsFrameTabActive then
-      return PlayerSpellsFrame:IsFrameTabActive(PlayerSpellsUtil.FrameTabs.SpellBook)
-    end
-    return true
-  end
-  if SpellBookFrame and SpellBookFrame.IsShown and SpellBookFrame:IsShown() then
-    return true
-  end
-  return false
+-- Open the spellbook by securely clicking Blizzard's micro button.
+-- Do NOT call ShowUIPanel / PlayerSpellsUtil / ToggleSpellBook from addon
+-- OnClick — that taints PetActionBar:SetShownBase on Forever.
+local function ResolveSpellbookMicroButton()
+  -- Forever/Retail often expose both; prefer the spells frame button when present.
+  return PlayerSpellsMicroButton or SpellbookMicroButton or TalentMicroButton
 end
 
--- Forever/Retail: PlayerSpellsUtil.OpenToSpellBookTab.
--- Classic clients: ToggleSpellBook / SpellBookFrame.
--- Only opens when hidden so we do not re-enter panel code every time.
-function EasyMacros.OpenSpellbook()
-  if SpellbookAlreadyOpen() then
-    return true
+-- Returns a SecureActionButton that clicks the micro button, or nil.
+function EasyMacros.CreateSecureSpellbookButton(parent, name)
+  local micro = ResolveSpellbookMicroButton()
+  if not micro then
+    return nil
   end
-  if PlayerSpellsUtil and PlayerSpellsUtil.OpenToSpellBookTab then
-    pcall(PlayerSpellsUtil.OpenToSpellBookTab)
-    return true
-  end
-  if PlayerSpellsFrame then
-    if ShowUIPanel then
-      pcall(ShowUIPanel, PlayerSpellsFrame)
-    else
-      PlayerSpellsFrame:Show()
-    end
-    return true
-  end
-  if ToggleSpellBook then
-    pcall(ToggleSpellBook, BOOKTYPE_SPELL or "spell")
-    return true
-  end
-  if SpellBookFrame then
-    if ShowUIPanel then
-      pcall(ShowUIPanel, SpellBookFrame)
-    else
-      SpellBookFrame:Show()
-    end
-    return true
-  end
-  return false
-end
 
-function EasyMacros.OpenSpellbookDeferred()
-  EasyMacros.After(0, function()
-    EasyMacros.OpenSpellbook()
+  local button
+  local ok = pcall(function()
+    button = CreateFrame("Button", name, parent, "UIPanelButtonTemplate,SecureActionButtonTemplate")
   end)
+  if not ok or not button then
+    ok = pcall(function()
+      button = CreateFrame("Button", name, parent, "SecureActionButtonTemplate")
+    end)
+  end
+  if not ok or not button then
+    return nil
+  end
+
+  if button.SetText then
+    button:SetText("Spellbook")
+  end
+  -- Retail/Forever want up+down; Classic is fine with both registered.
+  button:RegisterForClicks("AnyUp", "AnyDown")
+  button:SetAttribute("type", "click")
+  button:SetAttribute("clickbutton", micro)
+  -- Spellbook open may CloseSpecialWindows / reshuffle panels. Re-assert via
+  -- ShowUIPanel so we dock in the center slot beside the book (pushable 4).
+  button:SetScript("PostClick", function()
+    if EasyMacros.ShowMainFrame then
+      EasyMacros.ShowMainFrame()
+    end
+    if EasyMacros.After and EasyMacros.DockBesideSpellbook then
+      EasyMacros.After(0, EasyMacros.DockBesideSpellbook)
+    elseif EasyMacros.DockBesideSpellbook then
+      EasyMacros.DockBesideSpellbook()
+    end
+  end)
+  return button
 end
+

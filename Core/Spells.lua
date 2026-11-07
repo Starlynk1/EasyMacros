@@ -1,5 +1,19 @@
 EasyMacros = EasyMacros or {}
 
+-- Classes that keep a combat pet and benefit from /petattack in combat macros.
+-- Matches EasyMakro / Macro Spellbook pet-attack options (Hunter, Warlock).
+local PET_CLASSES = {
+  HUNTER = true,
+  WARLOCK = true,
+}
+
+function EasyMacros.IsPetClass(classFile)
+  if not classFile then
+    classFile = select(2, UnitClass("player"))
+  end
+  return classFile and PET_CLASSES[classFile] and true or false
+end
+
 -- Forever docs: C_Spell.IsSpellHelpful / IsSpellHarmful (SpellDocumentation.lua).
 -- Classic may still expose IsHelpfulSpell / IsHarmfulSpell.
 function EasyMacros.IsSpellHelpful(spellId)

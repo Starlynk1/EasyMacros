@@ -26,12 +26,10 @@ function EasyMacros.PreviewMacro(spellName, spellType)
     return nil
   end
   spellType = spellType or EasyMacros.TEMPLATE_COMBAT
-  local includePet = spellType == EasyMacros.TEMPLATE_COMBAT and EasyMacros.IsPetClass()
   return {
     name = EasyMacros.MacroNameForSpell(spellName),
-    body = EasyMacros.BuildMacroBody(spellName, spellType, { includePet = includePet }),
+    body = EasyMacros.BuildMacroBody(spellName, spellType),
     spellType = spellType,
-    includePet = includePet and true or false,
   }
 end
 

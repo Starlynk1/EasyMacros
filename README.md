@@ -6,15 +6,16 @@ Easy Macros builds the right macro for the spell you drop: combat starters for h
 
 ## Features
 
-* Drop a spell from your spellbook onto the window
-* Harmful spells get a combat starter macro (pet classes include `/petattack`)
+* Drop a spell from your spellbook onto the window, then click **Create**
+* Harmful spells get a combat starter macro (clear / retarget / startattack / cast; `/petattack` for Hunter and Warlock)
 * Helpful spells for others use a mouseover conditional
 * Self-only helpful spells use a plain `/cast`
 * Character-specific macros only (no duplicates)
-* Preview the macro text and drag the icon to your action bars
-* List of macros created by Easy Macros for quick placement
-* Optional open-spellbook toggle
+* Drop a spell, click Create (macro attaches to your cursor), drop it on a bar
+* Or drag again later from the created-macro list
+* Same CreateMacro + PickupMacro path as Macro Spellbook / MacroActionBar (Forever)
 * Minimap button
+* Spellbook button that securely clicks Blizzard’s micro button (avoids Forever taint)
 
 ## Commands
 

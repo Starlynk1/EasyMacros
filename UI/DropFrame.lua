@@ -5,7 +5,7 @@ local FRAME_HEIGHT = 420
 local ICON_SIZE = 48
 local LIST_ICON = 36
 local SIDE_WIDTH = 78
-local HINT_TEXT = "Drag A Spell Here From Your Spellbook."
+local HINT_TEXT = "Drag A Spell Here From Your Spellbook.\nThen click Create Macro."
 
 local PANEL_BACKDROP = {
   bgFile = "Interface\\ChatFrame\\ChatFrameBackground",
@@ -47,11 +47,12 @@ local function SetMacroIconTexture(texture, icon)
   end
 end
 
+-- Same drag path as MacroActionBar (Forever Macro Spellbook): OnDragStart → PickupMacro.
 local function CreateMacroIconButton(parent, name, size)
   local button = CreateFrame("Button", name, parent)
   button:SetSize(size, size)
-  button:RegisterForDrag("LeftButton")
   button:EnableMouse(true)
+  button:RegisterForDrag("LeftButton")
 
   local icon = button:CreateTexture(nil, "ARTWORK")
   icon:SetAllPoints()
@@ -67,22 +68,21 @@ local function CreateMacroIconButton(parent, name, size)
     if not self.macroIndex then
       GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
       GameTooltip:AddLine("No macro yet")
-      GameTooltip:AddLine("Drop a spell to create one", 0.8, 0.8, 0.8)
+      GameTooltip:AddLine("Drop a spell, then click Create", 0.8, 0.8, 0.8)
       GameTooltip:Show()
       return
     end
     GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
     GameTooltip:AddLine(self.macroName or "Macro")
-    GameTooltip:AddLine("Drag to an action bar", 0.8, 0.8, 0.8)
+    GameTooltip:AddLine("Drag onto an action bar", 0.8, 0.8, 0.8)
     GameTooltip:Show()
   end)
   button:SetScript("OnLeave", function()
     GameTooltip:Hide()
   end)
-  -- Drag only. Click-to-pickup taints action bars more easily when combat starts later.
   button:SetScript("OnDragStart", function(self)
-    if self.macroIndex then
-      EasyMacros.PickupManagedMacro(self.macroIndex)
+    if self.macroIndex or self.macroName then
+      EasyMacros.PickupManagedMacro(self.macroIndex, self.macroName)
     end
   end)
 
@@ -106,8 +106,19 @@ local function CreateMacroIconButton(parent, name, size)
   return button
 end
 
+local function SetCreateEnabled(frame, enabled)
+  if frame.createButton then
+    if enabled then
+      frame.createButton:Enable()
+    else
+      frame.createButton:Disable()
+    end
+  end
+end
+
 local function ShowEmptyState(frame)
   frame.hasPreview = false
+  frame.pendingSpell = nil
   frame.currentBody = ""
   frame.hint:Show()
   frame.bodyBox:Hide()
@@ -117,10 +128,34 @@ local function ShowEmptyState(frame)
   if frame.activeLabel then
     frame.activeLabel:SetText("")
   end
+  SetCreateEnabled(frame, false)
 end
 
-local function ShowPreview(frame, result)
+-- Draft preview only — no CreateMacro until Create Macro is clicked.
+local function ShowPendingPreview(frame, spell, preview)
   frame.hasPreview = true
+  frame.pendingSpell = spell
+  frame.hint:Hide()
+  frame.bodyBox:Show()
+  frame.bodyBox:SetText(preview.body or "")
+  if frame.bodyBox.SetCursorPosition then
+    frame.bodyBox:SetCursorPosition(0)
+  end
+  frame.activeIcon:Show()
+  -- Icon only; no macroIndex until create succeeds (cannot drag yet).
+  frame.activeIcon:SetMacro({
+    name = preview.name,
+    icon = EasyMacros.SpellIcon(spell.spellId) or preview.name,
+  })
+  if frame.activeLabel then
+    frame.activeLabel:SetText(preview.name or "")
+  end
+  SetCreateEnabled(frame, true)
+end
+
+local function ShowCreatedPreview(frame, result)
+  frame.hasPreview = true
+  frame.pendingSpell = nil
   frame.hint:Hide()
   frame.bodyBox:Show()
   frame.bodyBox:SetText(result.body or "")
@@ -132,6 +167,7 @@ local function ShowPreview(frame, result)
   if frame.activeLabel then
     frame.activeLabel:SetText(result.name or "")
   end
+  SetCreateEnabled(frame, false)
 end
 
 local function ResetPreview(frame)
@@ -185,6 +221,24 @@ local function RefreshManagedList(frame)
   end
 end
 
+local function CreatePendingMacro(frame)
+  local spell = frame.pendingSpell
+  if not spell then
+    EasyMacros.Print("Drop a spell first.")
+    return
+  end
+  -- CreateMacro on this click (hardware event), same as Macro Maker / MacroActionBar.
+  EasyMacros.MakeMacroFromSpell(spell, function(result)
+    if not frame or not frame.IsShown or not frame:IsShown() then
+      return
+    end
+    if result then
+      ShowCreatedPreview(frame, result)
+    end
+    RefreshManagedList(frame)
+  end)
+end
+
 local function TryAcceptSpellDrop(frame)
   local spell = EasyMacros.CursorSpell and EasyMacros.CursorSpell()
   if not spell then
@@ -194,18 +248,13 @@ local function TryAcceptSpellDrop(frame)
     ClearCursor()
   end
 
-  ShowEmptyState(frame)
-  EasyMacros.MakeMacroFromSpell(spell, function(result)
-    if not frame or not frame.IsShown or not frame:IsShown() then
-      return
-    end
-    if result then
-      ShowPreview(frame, result)
-    else
-      ShowEmptyState(frame)
-    end
-    RefreshManagedList(frame)
-  end)
+  local spellType = EasyMacros.ClassifySpell(spell.spellId)
+  local preview = EasyMacros.PreviewMacro(spell.name, spellType)
+  if not preview then
+    ShowEmptyState(frame)
+    return true
+  end
+  ShowPendingPreview(frame, spell, preview)
   return true
 end
 
@@ -234,9 +283,19 @@ function EasyMacros.CreateDropFrame()
   activeLabel:SetJustifyH("CENTER")
   frame.activeLabel = activeLabel
 
+  local createButton = CreateFrame("Button", "EasyMacrosCreateButton", side, "UIPanelButtonTemplate")
+  createButton:SetSize(SIDE_WIDTH - 8, 22)
+  createButton:SetPoint("TOP", activeIcon, "BOTTOM", 0, -24)
+  createButton:SetText("Create")
+  createButton:Disable()
+  createButton:SetScript("OnClick", function()
+    CreatePendingMacro(frame)
+  end)
+  frame.createButton = createButton
+
   local resetButton = CreateFrame("Button", "EasyMacrosResetButton", side, "UIPanelButtonTemplate")
   resetButton:SetSize(SIDE_WIDTH - 8, 22)
-  resetButton:SetPoint("TOP", activeIcon, "BOTTOM", 0, -24)
+  resetButton:SetPoint("TOP", createButton, "BOTTOM", 0, -4)
   resetButton:SetText("Reset")
   resetButton:SetScript("OnClick", function()
     ResetPreview(frame)
@@ -293,24 +352,19 @@ function EasyMacros.CreateDropFrame()
   listCount:SetPoint("LEFT", listHeader, "RIGHT", 8, 0)
   frame.listCount = listCount
 
-  local openSpellbook = CreateFrame("CheckButton", "EasyMacrosOpenSpellbookCheck", frame, "UICheckButtonTemplate")
-  openSpellbook:SetSize(24, 24)
-  openSpellbook:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 10, 10)
-  local openSpellbookLabel = openSpellbook.Text or openSpellbook.text or _G[openSpellbook:GetName() .. "Text"]
-  if not openSpellbookLabel then
-    openSpellbookLabel = openSpellbook:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
-    openSpellbookLabel:SetPoint("LEFT", openSpellbook, "RIGHT", 2, 0)
+  -- Secure click of Blizzard's micro button (not ShowUIPanel from addon code).
+  local spellbookButton = EasyMacros.CreateSecureSpellbookButton
+    and EasyMacros.CreateSecureSpellbookButton(frame, "EasyMacrosSpellbookButton")
+  if spellbookButton then
+    spellbookButton:SetSize(100, 22)
+    spellbookButton:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 12, 12)
+    frame.spellbookButton = spellbookButton
+  else
+    local spellbookHint = frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    spellbookHint:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 14, 14)
+    spellbookHint:SetText("Open your spellbook, then drag a spell here.")
+    frame.spellbookHint = spellbookHint
   end
-  openSpellbookLabel:SetText("Open Spellbook")
-  openSpellbook:SetChecked(EasyMacros.GetOpenSpellbook())
-  openSpellbook:SetScript("OnClick", function(self)
-    local enabled = self:GetChecked() and true or false
-    EasyMacros.SetOpenSpellbook(enabled)
-    if enabled and EasyMacros.OpenSpellbookDeferred then
-      EasyMacros.OpenSpellbookDeferred()
-    end
-  end)
-  frame.openSpellbook = openSpellbook
 
   local listPanel = CreateFrame("Frame", nil, frame, BackdropTemplateMixin and "BackdropTemplate" or nil)
   listPanel:SetPoint("TOPLEFT", listHeader, "BOTTOMLEFT", -2, -6)
@@ -346,12 +400,6 @@ function EasyMacros.CreateDropFrame()
     if not self.hasPreview then
       ShowEmptyState(self)
     end
-    if self.openSpellbook then
-      self.openSpellbook:SetChecked(EasyMacros.GetOpenSpellbook())
-    end
-    if EasyMacros.GetOpenSpellbook() and EasyMacros.OpenSpellbookDeferred then
-      EasyMacros.OpenSpellbookDeferred()
-    end
   end)
 
   ShowEmptyState(frame)
@@ -362,16 +410,16 @@ end
 function EasyMacros.ToggleDropFrame(forceShow)
   local frame = EasyMacros.CreateDropFrame()
   if forceShow == true then
-    frame:Show()
+    EasyMacros.ShowMainFrame()
     return
   end
   if forceShow == false then
-    frame:Hide()
+    EasyMacros.HideMainFrame()
     return
   end
   if frame:IsShown() then
-    frame:Hide()
+    EasyMacros.HideMainFrame()
   else
-    frame:Show()
+    EasyMacros.ShowMainFrame()
   end
 end

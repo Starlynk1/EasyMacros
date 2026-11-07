@@ -13,7 +13,7 @@ eventFrame:SetScript("OnEvent", function(_, event, arg1)
       EasyMacros.Print("This client is not supported yet.")
       return
     end
-    EasyMacros.CreateDropFrame()
+    -- Lazy-build the window on first /em (avoid PortraitFrame work at login).
     if EasyMacros.InitMinimap then
       EasyMacros.InitMinimap()
     end
