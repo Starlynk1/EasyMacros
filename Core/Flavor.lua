@@ -15,7 +15,7 @@ function EasyMacros.IsForever()
   return type(version) == "string" and version:find("^1%.60") ~= nil
 end
 
--- Classic Era / Anniversary / Hardcore: interface 115xx.
+-- Classic Era / Hardcore / SoD-style era clients: interface 115xx.
 function EasyMacros.IsClassicEra()
   if EasyMacros.IsForever() then
     return false
@@ -30,12 +30,47 @@ function EasyMacros.IsClassicEra()
   return false
 end
 
+-- Any Classic progression client: Era, Anniversary (TBC), Wrath, Cata, MoP.
+function EasyMacros.IsClassic()
+  if EasyMacros.IsForever() or EasyMacros.IsRetail() then
+    return false
+  end
+  local toc = EasyMacros.GetTocVersion()
+  if toc >= 11500 and toc < 12000 then
+    return true
+  end
+  -- Anniversary/TBC 205xx, Wrath 304xx, Titan Reforged 380xx, Cata 404xx, MoP 505xx.
+  if toc >= 20000 and toc < 60000 then
+    return true
+  end
+  local id = WOW_PROJECT_ID
+  if not id or id == WOW_PROJECT_MAINLINE then
+    return false
+  end
+  if WOW_PROJECT_CLASSIC and id == WOW_PROJECT_CLASSIC then
+    return true
+  end
+  if WOW_PROJECT_BURNING_CRUSADE_CLASSIC and id == WOW_PROJECT_BURNING_CRUSADE_CLASSIC then
+    return true
+  end
+  if WOW_PROJECT_WRATH_CLASSIC and id == WOW_PROJECT_WRATH_CLASSIC then
+    return true
+  end
+  if WOW_PROJECT_CATACLYSM_CLASSIC and id == WOW_PROJECT_CATACLYSM_CLASSIC then
+    return true
+  end
+  if WOW_PROJECT_MISTS_CLASSIC and id == WOW_PROJECT_MISTS_CLASSIC then
+    return true
+  end
+  return false
+end
+
 function EasyMacros.IsRetail()
   return WOW_PROJECT_ID == WOW_PROJECT_MAINLINE
 end
 
 function EasyMacros.IsSupported()
-  return EasyMacros.IsRetail() or EasyMacros.IsForever() or EasyMacros.IsClassicEra()
+  return EasyMacros.IsRetail() or EasyMacros.IsForever() or EasyMacros.IsClassic()
 end
 
 function EasyMacros.PlayerClassFile()
@@ -87,7 +122,7 @@ local function SpellbookAlreadyOpen()
 end
 
 -- Forever/Retail: PlayerSpellsUtil.OpenToSpellBookTab.
--- Classic Era: ToggleSpellBook / SpellBookFrame.
+-- Classic clients: ToggleSpellBook / SpellBookFrame.
 -- Only opens when hidden so we do not re-enter panel code every time.
 function EasyMacros.OpenSpellbook()
   if SpellbookAlreadyOpen() then

@@ -7,7 +7,7 @@
 #   Value: CurseForge API token from https://authors.curseforge.com/#/settings/api-tokens
 #
 # CurseForge project id is set in EasyMacros.toc:
-#   ## X-Curse-Project-ID: <your project id>
+#   ## X-Curse-Project-ID: 1790040
 
 name: Package and release
 

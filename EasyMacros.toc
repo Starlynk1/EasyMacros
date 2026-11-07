@@ -1,4 +1,4 @@
-## Interface: 120100, 16001, 11508, 11509
+## Interface: 120100, 16001, 11508, 11509, 20506, 40402, 50504
 ## Title: Easy Macros
 ## Notes: Drop a spell from your spellbook to build class-aware combat or help macros.
 ## Author: Starlynk
@@ -8,7 +8,8 @@
 ## SavedVariablesPerCharacter: EasyMacrosCharacter
 ## X-Category: Action Bars, Combat
 ## X-License: GPLv3
-## X-Website: https://github.com/Starlynk1/EasyMacros
+## X-Website: https://www.curseforge.com/wow/addons/easy-macros
+## X-Curse-Project-ID: 1790040
 
 Core/Init.lua
 Core/Flavor.lua
