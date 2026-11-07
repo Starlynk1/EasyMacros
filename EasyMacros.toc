@@ -1,0 +1,23 @@
+## Interface: 120100, 16001, 11508, 11509
+## Title: Easy Macros
+## Notes: Drop a spell from your spellbook to build class-aware combat or help macros.
+## Author: Starlynk
+## Version: 1.0.0
+## DefaultState: enabled
+## SavedVariables: EasyMacrosDB
+## SavedVariablesPerCharacter: EasyMacrosCharacter
+## X-Category: Action Bars, Combat
+## X-License: GPLv3
+## X-Website: https://github.com/Starlynk1/EasyMacros
+
+Core/Init.lua
+Core/Flavor.lua
+Core/Spells.lua
+Core/Templates.lua
+Core/Builder.lua
+Core/Macros.lua
+UI/Skin.lua
+UI/DropFrame.lua
+UI/Minimap.lua
+Core/Events.lua
+Core/Commands.lua

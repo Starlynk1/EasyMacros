@@ -1,0 +1,9 @@
+package-as: EasyMacros
+
+manual-changelog:
+  filename: RELEASENOTES.md
+  markup-type: markdown
+
+ignore:
+  - .cursor
+  - .gitignore

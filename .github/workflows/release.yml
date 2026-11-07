@@ -1,0 +1,35 @@
+# Packages Easy Macros and uploads it when a version tag is pushed.
+# Publishing a GitHub release creates that tag.
+#
+# Repository secret required before CurseForge upload:
+#   Settings → Secrets and variables → Actions → New repository secret
+#   Name: CF_API_KEY
+#   Value: CurseForge API token from https://authors.curseforge.com/#/settings/api-tokens
+#
+# CurseForge project id is set in EasyMacros.toc:
+#   ## X-Curse-Project-ID: <your project id>
+
+name: Package and release
+
+on:
+  push:
+    tags:
+      - "**"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      CF_API_KEY: ${{ secrets.CF_API_KEY }}
+      GITHUB_OAUTH: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Clone project
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Package and release
+        uses: BigWigsMods/packager@v2
