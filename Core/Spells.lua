@@ -57,6 +57,7 @@ function EasyMacros.IsSpellHarmful(spellId)
 end
 
 -- Forever: C_Spell.IsSelfBuff — aura applies effects to the player only.
+-- Incomplete on some Forever spells (e.g. Demon Armor/Skin); pair with range.
 function EasyMacros.IsSpellSelfOnly(spellId)
   spellId = tonumber(spellId)
   if not spellId then
@@ -64,33 +65,90 @@ function EasyMacros.IsSpellSelfOnly(spellId)
   end
   if C_Spell and C_Spell.IsSelfBuff then
     local ok, result = pcall(C_Spell.IsSelfBuff, spellId)
-    if ok then
-      return result and true or false
+    if ok and result then
+      return true
+    end
+    -- false may be wrong on Forever; keep checking range below.
+    if ok and result == false then
+      local maxRange = EasyMacros.GetSpellMaxRange(spellId)
+      if maxRange == 0 then
+        return true
+      end
+      if maxRange and maxRange > 0 then
+        return false
+      end
     end
   end
   if SpellIsSelfBuff then
     local ok, result = pcall(SpellIsSelfBuff, spellId)
+    if ok and result then
+      return true
+    end
+  end
+  local maxRange = EasyMacros.GetSpellMaxRange(spellId)
+  if maxRange == 0 then
+    return true
+  end
+  if maxRange and maxRange > 0 then
+    return false
+  end
+  return nil
+end
+
+-- Max cast range in yards. Self buffs like Demon Armor/Skin are 0.
+function EasyMacros.GetSpellMaxRange(spellId)
+  spellId = tonumber(spellId)
+  if not spellId then
+    return nil
+  end
+  if C_Spell and C_Spell.GetSpellInfo then
+    local ok, info = pcall(C_Spell.GetSpellInfo, spellId)
+    if ok and type(info) == "table" then
+      local maxRange = tonumber(info.maxRange)
+      if maxRange ~= nil then
+        return maxRange
+      end
+    end
+  end
+  if GetSpellInfo then
+    -- name, rank, icon, castTime, minRange, maxRange, ...
+    local ok, _, _, _, _, _, maxRange = pcall(GetSpellInfo, spellId)
     if ok then
-      return result and true or false
+      maxRange = tonumber(maxRange)
+      if maxRange ~= nil then
+        return maxRange
+      end
     end
   end
   return nil
 end
 
+-- Classification uses Blizzard spell APIs only (no spell-ID / name libraries):
+--   IsSpellHelpful / IsSpellHarmful / IsSelfBuff (+ Classic SpellIsSelfBuff)
+--   GetSpellInfo / C_Spell.GetSpellInfo maxRange
 -- Harmful → combat.
--- Helpful + self-only → plain /cast.
--- Helpful for others → mouseover help macro.
+-- Helpful + self-only / 0-range → plain /cast (no mouseover).
+-- Helpful with range → mouseover help macro.
+-- Neutral 0-range (summons, call/dismiss pet, utilities) → plain /cast, not combat.
 function EasyMacros.ClassifySpell(spellId)
   local helpful = EasyMacros.IsSpellHelpful(spellId)
   local harmful = EasyMacros.IsSpellHarmful(spellId)
   local selfOnly = EasyMacros.IsSpellSelfOnly(spellId)
+  local maxRange = EasyMacros.GetSpellMaxRange(spellId)
 
-  if helpful == true and harmful ~= true then
-    if selfOnly == true then
-      return EasyMacros.TEMPLATE_SELF
+  local function PlainCastTemplate()
+    return EasyMacros.TEMPLATE_SELF
+  end
+
+  local function HelpfulTemplate()
+    -- Prefer self when the API says so, or when the spell cannot target others
+    -- (0 yd). Forever often leaves IsSelfBuff false for Demon Armor/Skin.
+    if selfOnly == true or maxRange == 0 then
+      return PlainCastTemplate()
     end
     return EasyMacros.TEMPLATE_HELP
   end
+
   if helpful == true and harmful == true then
     -- Dual-purpose (rare). Prefer combat until a dedicated template exists.
     return EasyMacros.TEMPLATE_COMBAT
@@ -99,10 +157,11 @@ function EasyMacros.ClassifySpell(spellId)
     return EasyMacros.TEMPLATE_COMBAT
   end
   if helpful == true then
-    if selfOnly == true then
-      return EasyMacros.TEMPLATE_SELF
-    end
-    return EasyMacros.TEMPLATE_HELP
+    return HelpfulTemplate()
+  end
+  -- Not helpful/harmful: summons and other 0-range utilities via Blizzard range.
+  if selfOnly == true or maxRange == 0 then
+    return PlainCastTemplate()
   end
   return EasyMacros.TEMPLATE_COMBAT
 end

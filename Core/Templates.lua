@@ -4,8 +4,9 @@ EasyMacros = EasyMacros or {}
 -- Interface/AddOns/Blizzard_ChatFrameBase/Shared/SlashCommands.lua
 --   /cast → SecureCmdOptionParse(msg) → CastSpellByName(action, target)
 -- Interface/AddOns/Blizzard_APIDocumentationGenerated/SpellDocumentation.lua
---   C_Spell.IsSelfBuff → aura applies to player only
+--   C_Spell.IsSelfBuff → aura applies to player only (unreliable for some Forever self buffs)
 --   C_Spell.IsSpellHelpful → can cast on player or other friendlies
+--   Self template also used when helpful + maxRange 0 (Demon Armor/Skin, Inner Fire, etc.)
 --
 -- Same CreateMacro/PickupMacro pattern as Cobas91/EasyMakro and MacroSpellBook:
 -- real character macros with optional /petattack for pet classes.

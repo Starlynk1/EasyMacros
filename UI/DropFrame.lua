@@ -4,8 +4,15 @@ local FRAME_WIDTH = 440
 local FRAME_HEIGHT = 420
 local ICON_SIZE = 48
 local LIST_ICON = 36
+local LIST_LABEL_WIDTH = LIST_ICON + 8
+local LIST_COLS_MAX = 8
+local LIST_GAP = 4
+local LIST_START_X = 6
+local LIST_START_Y = -6
+local LIST_ROW_EXTRA = 22
+local PREVIEW_HEIGHT = 160
 local SIDE_WIDTH = 78
-local HINT_TEXT = "Drag A Spell Here From Your Spellbook.\nThen click Create Macro."
+local HINT_TEXT = "Drag A Spell Here From Your Spellbook.\nThen click Create."
 
 local PANEL_BACKDROP = {
   bgFile = "Interface\\ChatFrame\\ChatFrameBackground",
@@ -174,6 +181,23 @@ local function ResetPreview(frame)
   ShowEmptyState(frame)
 end
 
+local function ListViewportWidth(frame)
+  if frame.listScroll and frame.listScroll.GetWidth then
+    local width = frame.listScroll:GetWidth()
+    if width and width > 1 then
+      return width
+    end
+  end
+  -- Scroll inset: panel edges + scrollbar gutter.
+  return FRAME_WIDTH - 60
+end
+
+local function FitListColumns(availableWidth)
+  local stride = LIST_LABEL_WIDTH + LIST_GAP
+  local cols = math.floor((availableWidth - LIST_START_X + LIST_GAP) / stride)
+  return math.max(1, math.min(LIST_COLS_MAX, cols))
+end
+
 local function RefreshManagedList(frame)
   local list = EasyMacros.ListManagedMacros()
   frame.managed = list
@@ -182,10 +206,12 @@ local function RefreshManagedList(frame)
     button:Hide()
   end
 
-  local cols = 8
-  local pad = 8
-  local spacing = 10
-  local startX, startY = 8, -8
+  local availableWidth = ListViewportWidth(frame)
+  local cols = FitListColumns(availableWidth)
+  local stride = LIST_LABEL_WIDTH + LIST_GAP
+  local rowHeight = LIST_ICON + LIST_ROW_EXTRA
+  frame.listChild:SetWidth(availableWidth)
+
   for index, info in ipairs(list) do
     local button = frame.listButtons[index]
     if not button then
@@ -193,19 +219,22 @@ local function RefreshManagedList(frame)
       frame.listButtons[index] = button
       local nameLabel = button:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
       nameLabel:SetPoint("TOP", button, "BOTTOM", 0, -2)
-      nameLabel:SetWidth(LIST_ICON + 8)
+      nameLabel:SetWidth(LIST_LABEL_WIDTH)
       nameLabel:SetJustifyH("CENTER")
       button.nameLabel = nameLabel
     end
     local col = (index - 1) % cols
     local row = math.floor((index - 1) / cols)
+    -- Center the icon in the label-width cell so names stay inside the viewport.
+    local cellX = LIST_START_X + col * stride
+    local iconX = cellX + math.floor((LIST_LABEL_WIDTH - LIST_ICON) / 2)
     button:ClearAllPoints()
     button:SetPoint(
       "TOPLEFT",
       frame.listChild,
       "TOPLEFT",
-      startX + col * (LIST_ICON + spacing + pad),
-      startY - row * (LIST_ICON + 22)
+      iconX,
+      LIST_START_Y - row * rowHeight
     )
     button:SetMacro(info)
     if button.nameLabel then
@@ -215,9 +244,9 @@ local function RefreshManagedList(frame)
   end
 
   local rows = math.max(1, math.ceil(math.max(#list, 1) / cols))
-  frame.listChild:SetHeight(rows * (LIST_ICON + 22) + 16)
-  if frame.listCount then
-    frame.listCount:SetText(string.format("Created macros: %d", #list))
+  frame.listChild:SetHeight(rows * rowHeight + 16)
+  if frame.listHeader then
+    frame.listHeader:SetText(string.format("Macros Created by Easy Macros: %d", #list))
   end
 end
 
@@ -276,7 +305,7 @@ function EasyMacros.CreateDropFrame()
   local side = CreateFrame("Frame", nil, frame)
   side:SetWidth(SIDE_WIDTH)
   side:SetPoint("TOPRIGHT", -12, ContentTop())
-  side:SetHeight(170)
+  side:SetHeight(PREVIEW_HEIGHT)
   frame.side = side
 
   local activeIcon = CreateMacroIconButton(side, "EasyMacrosActiveIcon", ICON_SIZE)
@@ -312,7 +341,7 @@ function EasyMacros.CreateDropFrame()
   local previewFrame = CreateFrame("Frame", nil, frame, BackdropTemplateMixin and "BackdropTemplate" or nil)
   previewFrame:SetPoint("TOPLEFT", 12, ContentTop())
   previewFrame:SetPoint("TOPRIGHT", side, "TOPLEFT", -8, 0)
-  previewFrame:SetHeight(170)
+  previewFrame:SetHeight(PREVIEW_HEIGHT)
   ApplyPanelBackdrop(previewFrame, 0.35)
   frame.previewFrame = previewFrame
 
@@ -351,12 +380,8 @@ function EasyMacros.CreateDropFrame()
 
   local listHeader = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
   listHeader:SetPoint("TOPLEFT", previewFrame, "BOTTOMLEFT", 2, -12)
-  listHeader:SetText("Macros created by Easy Macros")
+  listHeader:SetText("Macros Created by Easy Macros: 0")
   frame.listHeader = listHeader
-
-  local listCount = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-  listCount:SetPoint("LEFT", listHeader, "RIGHT", 8, 0)
-  frame.listCount = listCount
 
   -- Secure click of Blizzard's micro button (not ShowUIPanel from addon code).
   local spellbookButton = EasyMacros.CreateSecureSpellbookButton

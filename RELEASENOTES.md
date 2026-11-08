@@ -1,3 +1,10 @@
+# Easy Macros 1.0.3
+
+- Fixed created-macro grid clipping the 8th icon off the frame; columns now fit inside the list viewport.
+- Shortened the preview box by 10px and gave that height to the macro list so two rows show without cutoff.
+- Fixed self buffs (e.g. Demon Armor / Demon Skin) incorrectly getting mouseover conditionals — uses Blizzard helpful/harmful/self and 0-range checks.
+- Fixed summon / call-pet style spells being built as combat macros; neutral 0-range spells use a plain `/cast` (Blizzard APIs only, no spell list).
+
 # Easy Macros 1.0.2
 
 - Fixed character macro slot limit on Forever/Retail (30 slots, Classic + 12) so free-slot checks no longer stop at 18.
@@ -11,12 +18,3 @@
 - Easy Macros now docks beside the spellbook like other Blizzard panels instead of closing when the book opens.
 - Create flow clarified: drop a spell for preview, click **Create**, then drop the macro on your bar (or drag again from the created list).
 - Restored `/petattack` on Hunter and Warlock combat macros.
-
-# Easy Macros 1.0.0
-
-- Initial release for Retail, WoW Forever, and Classic (Era, Anniversary, Cataclysm, and MoP).
-- Drop a spell from your spellbook to create a character-specific macro.
-- Harmful spells build a combat starter with clear/retarget, startattack, and optional /petattack for Hunter and Warlock.
-- Helpful spells that work on others use mouseover; self-only helpful spells use a plain cast.
-- Preview the macro text, drag the icon to your action bars, and browse macros created by Easy Macros.
-- Minimap button and slash commands.
