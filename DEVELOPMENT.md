@@ -9,8 +9,9 @@
 
 - Commits and GitHub history must show **Starlynk** only (`Starlynk` / `info@starlynk.net`).
 - Do **not** add `Co-authored-by: Cursor` (or any Cursor / agent) trailers. Those make Cursor appear as a repo contributor.
-- Cursor may auto-inject that trailer on commit; strip it before pushing, e.g. amend with hooks disabled: `git -c core.hooksPath=nul commit --amend`.
+- A local `.git/hooks/commit-msg` strips Cursor co-author lines automatically (recreate after clone).
 - After any agent-assisted commit, confirm `git log -1` has no Cursor co-author line before pushing.
+- Never push `main` or create release tags without explicit consent.
 
 ## Release notes
 
