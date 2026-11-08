@@ -222,6 +222,9 @@ local function RefreshManagedList(frame)
 end
 
 local function CreatePendingMacro(frame)
+  if EasyMacros.CombatBlocked and EasyMacros.CombatBlocked("Leave combat before creating macros.") then
+    return
+  end
   local spell = frame.pendingSpell
   if not spell then
     EasyMacros.Print("Drop a spell first.")
@@ -240,6 +243,9 @@ local function CreatePendingMacro(frame)
 end
 
 local function TryAcceptSpellDrop(frame)
+  if EasyMacros.CombatBlocked and EasyMacros.CombatBlocked("Leave combat before dropping spells.") then
+    return false
+  end
   local spell = EasyMacros.CursorSpell and EasyMacros.CursorSpell()
   if not spell then
     return false
@@ -418,6 +424,7 @@ function EasyMacros.ToggleDropFrame(forceShow)
     return
   end
   if frame:IsShown() then
+    -- Always allow close, including during combat lockdown.
     EasyMacros.HideMainFrame()
   else
     EasyMacros.ShowMainFrame()

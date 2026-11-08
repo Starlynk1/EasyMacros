@@ -2,7 +2,7 @@
 ## Title: Easy Macros
 ## Notes: Drop a spell from your spellbook to build class-aware combat or help macros.
 ## Author: Starlynk
-## Version: 1.0.1
+## Version: 1.0.2
 ## DefaultState: enabled
 ## SavedVariables: EasyMacrosDB
 ## SavedVariablesPerCharacter: EasyMacrosCharacter

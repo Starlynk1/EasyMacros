@@ -133,6 +133,9 @@ function EasyMacros.BindPanelCloseButton(frame)
 end
 
 function EasyMacros.ShowMainFrame()
+  if EasyMacros.CombatBlocked and EasyMacros.CombatBlocked("Leave combat before opening Easy Macros.") then
+    return
+  end
   local frame = EasyMacros.dropFrame or EasyMacros.CreateDropFrame and EasyMacros.CreateDropFrame()
   if not frame then
     return

@@ -46,7 +46,7 @@ end
 
 local function CharacterSlotsFree()
   local _, numCharacter = MacroCounts()
-  local limit = MAX_CHARACTER_MACROS or 18
+  local limit = EasyMacros.CharacterMacroLimit and EasyMacros.CharacterMacroLimit() or (MAX_CHARACTER_MACROS or 18)
   return limit - numCharacter
 end
 
@@ -100,8 +100,7 @@ end
 -- Create or update a character macro (MacroActionBar-style plain API).
 -- Returns: index, created (bool), unchanged (bool)
 function EasyMacros.CreateOrUpdateCharacterMacro(name, body)
-  if InCombatLockdown and InCombatLockdown() then
-    EasyMacros.Print("Leave combat before creating macros.")
+  if EasyMacros.CombatBlocked and EasyMacros.CombatBlocked("Leave combat before creating macros.") then
     return nil
   end
 
@@ -174,7 +173,7 @@ function EasyMacros.MakeMacroFromSpell(spell, onDone)
   local result = index and BuildResult(spell, preview, index, created, unchanged) or nil
   -- MacroActionBar picks up on drag; after Create, put it on the cursor so the
   -- next drop can be straight onto an action bar (same PickupMacro API).
-  if index and PickupMacro and not (InCombatLockdown and InCombatLockdown()) then
+  if index and PickupMacro and not (EasyMacros.InCombat and EasyMacros.InCombat()) then
     PickupMacro(index)
   end
   if onDone then
@@ -211,8 +210,7 @@ end
 
 -- MacroActionBar smb.pickupMacro: PickupMacro(index) from OnDragStart.
 function EasyMacros.PickupManagedMacro(macroIndex, macroName)
-  if InCombatLockdown and InCombatLockdown() then
-    EasyMacros.Print("Leave combat before dragging macros.")
+  if EasyMacros.CombatBlocked and EasyMacros.CombatBlocked("Leave combat before dragging macros.") then
     return false
   end
   if not PickupMacro then

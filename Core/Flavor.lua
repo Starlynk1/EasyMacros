@@ -73,6 +73,34 @@ function EasyMacros.IsSupported()
   return EasyMacros.IsRetail() or EasyMacros.IsForever() or EasyMacros.IsClassic()
 end
 
+-- Classic: 18 character macros. Forever/Retail: 30 (Classic + 12).
+-- Some Forever builds still expose MAX_CHARACTER_MACROS as 18.
+function EasyMacros.CharacterMacroLimit()
+  local reported = tonumber(MAX_CHARACTER_MACROS) or 0
+  if EasyMacros.IsForever() or EasyMacros.IsRetail() then
+    if reported >= 30 then
+      return reported
+    end
+    return 30
+  end
+  if reported > 0 then
+    return reported
+  end
+  return 18
+end
+
+function EasyMacros.InCombat()
+  return InCombatLockdown and InCombatLockdown() and true or false
+end
+
+function EasyMacros.CombatBlocked(message)
+  if not EasyMacros.InCombat() then
+    return false
+  end
+  EasyMacros.Print(message or "Leave combat before using Easy Macros.")
+  return true
+end
+
 function EasyMacros.PlayerClassFile()
   if not UnitClass then
     return nil

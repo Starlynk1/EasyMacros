@@ -1,3 +1,8 @@
+# Easy Macros 1.0.2
+
+- Fixed character macro slot limit on Forever/Retail (30 slots, Classic + 12) so free-slot checks no longer stop at 18.
+- Added combat lockdown: Easy Macros closes and refuses open/create/drop/drag while in combat to avoid interface errors.
+
 # Easy Macros 1.0.1
 
 - Fixed Forever BugSack / ADDON_ACTION_BLOCKED on PetActionBar and MultiBar after creating a macro (CreateMacro + PickupMacro on the Create click).

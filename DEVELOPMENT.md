@@ -3,7 +3,14 @@
 ## Branches
 
 - `develop` — active development and pre-release builds.
-- `main` — CurseForge / public releases only. Do not push to `main` until the CurseForge project is approved and a release is intentional.
+- `main` — CurseForge / public releases only. Push to `main` and tag only for intentional releases.
+
+## Authorship
+
+- Commits and GitHub history must show **Starlynk** only (`Starlynk` / `info@starlynk.net`).
+- Do **not** add `Co-authored-by: Cursor` (or any Cursor / agent) trailers. Those make Cursor appear as a repo contributor.
+- Cursor may auto-inject that trailer on commit; strip it before pushing, e.g. amend with hooks disabled: `git -c core.hooksPath=nul commit --amend`.
+- After any agent-assisted commit, confirm `git log -1` has no Cursor co-author line before pushing.
 
 ## Release notes
 
@@ -14,3 +21,8 @@ When cutting a new version:
 1. Add a new `# Easy Macros X.Y.Z` section at the top with that release’s changes (bug fixes, features, client notes).
 2. If the file would exceed 3 version sections, drop the oldest section.
 3. Bump `## Version` in `EasyMacros.toc` and `EasyMacros.VERSION` in `Core/Init.lua` to match.
+
+## Client notes
+
+- Character macro slots: Classic **18**; Forever / Retail **30** (Classic + 12). Use `EasyMacros.CharacterMacroLimit()` — do not trust a Forever `MAX_CHARACTER_MACROS` of 18.
+- Protected UI (`ShowUIPanel`, `CreateMacro`, `PickupMacro`, secure buttons): refuse or hide during `InCombatLockdown()`.
