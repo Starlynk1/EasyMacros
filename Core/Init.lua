@@ -4,7 +4,7 @@
 EasyMacros = EasyMacros or {}
 
 EasyMacros.ADDON_NAME = "EasyMacros"
-EasyMacros.VERSION = "1.0.3"
+EasyMacros.VERSION = "1.0.4"
 EasyMacros.NO_ICON = "INV_MISC_QUESTIONMARK"
 -- Macro names are capped at 16 characters by the client.
 EasyMacros.MACRO_NAME_MAX = 16
@@ -18,6 +18,16 @@ end
 function EasyMacros.EnsureDB()
   if type(EasyMacrosDB) ~= "table" then
     EasyMacrosDB = {}
+  end
+  if EasyMacrosDB.frameUnlocked == nil then
+    EasyMacrosDB.frameUnlocked = false
+  end
+  -- true = dock with Blizzard UIPanel layout; false = keep player-placed position.
+  if EasyMacrosDB.useBlizzardLayout == nil then
+    EasyMacrosDB.useBlizzardLayout = true
+  end
+  if EasyMacrosDB.showSpellTooltip == nil then
+    EasyMacrosDB.showSpellTooltip = false
   end
   return EasyMacrosDB
 end
@@ -59,4 +69,18 @@ function EasyMacros.UntrackMacro(name)
       table.remove(macros, index)
     end
   end
+end
+
+function EasyMacros.RenameTrackedMacro(oldName, newName)
+  if type(oldName) ~= "string" or type(newName) ~= "string" or newName == "" then
+    return nil
+  end
+  local macros = EasyMacros.TrackedMacros()
+  for _, entry in ipairs(macros) do
+    if entry.name == oldName then
+      entry.name = newName
+      return entry
+    end
+  end
+  return nil
 end

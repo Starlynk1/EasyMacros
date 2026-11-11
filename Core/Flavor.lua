@@ -129,8 +129,48 @@ end
 -- Do NOT call ShowUIPanel / PlayerSpellsUtil / ToggleSpellBook from addon
 -- OnClick — that taints PetActionBar:SetShownBase on Forever.
 local function ResolveSpellbookMicroButton()
-  -- Forever/Retail often expose both; prefer the spells frame button when present.
-  return PlayerSpellsMicroButton or SpellbookMicroButton or TalentMicroButton
+  -- Forever/Retail: PlayerSpellsMicroButton is the live control. A leftover
+  -- SpellbookMicroButton global can exist but does nothing when clicked.
+  -- Never fall back to TalentMicroButton.
+  if PlayerSpellsMicroButton then
+    return PlayerSpellsMicroButton
+  end
+  if SpellbookMicroButton then
+    return SpellbookMicroButton
+  end
+  return nil
+end
+
+local function PreferSpellbookTabOnMicro(micro)
+  if not micro then
+    return
+  end
+  -- PlayerSpellsMicroButton:OnClick uses suggestedTab; talent alerts leave it
+  -- on ClassTalents and open the talent UI instead of the spellbook.
+  micro.jumpToSpellID = nil
+  local tabs = PlayerSpellsUtil and PlayerSpellsUtil.FrameTabs
+  if tabs and tabs.SpellBook then
+    micro.suggestedTab = tabs.SpellBook
+  else
+    micro.suggestedTab = 3 -- PlayerSpellsUtil.FrameTabs.SpellBook
+  end
+end
+
+local function RegisterSecureClickOnce(button)
+  -- AnyUp+AnyDown fires the clickbutton twice (open then instant close).
+  -- Match ActionButtonUseKeyDown so we register exactly one direction.
+  local useDown = false
+  if GetCVarBool then
+    useDown = GetCVarBool("ActionButtonUseKeyDown") and true or false
+  elseif GetCVar then
+    useDown = GetCVar("ActionButtonUseKeyDown") == "1"
+  end
+  button:SetAttribute("useOnKeyDown", useDown)
+  if useDown then
+    button:RegisterForClicks("LeftButtonDown")
+  else
+    button:RegisterForClicks("LeftButtonUp")
+  end
 end
 
 -- Returns a SecureActionButton that clicks the micro button, or nil.
@@ -156,20 +196,21 @@ function EasyMacros.CreateSecureSpellbookButton(parent, name)
   if button.SetText then
     button:SetText("Spellbook")
   end
-  -- Retail/Forever want up+down; Classic is fine with both registered.
-  button:RegisterForClicks("AnyUp", "AnyDown")
+  RegisterSecureClickOnce(button)
   button:SetAttribute("type", "click")
   button:SetAttribute("clickbutton", micro)
-  -- Spellbook open may CloseSpecialWindows / reshuffle panels. Re-assert via
-  -- ShowUIPanel so we dock in the center slot beside the book (pushable 4).
+  button:SetScript("PreClick", function()
+    PreferSpellbookTabOnMicro(micro)
+  end)
   button:SetScript("PostClick", function()
-    if EasyMacros.ShowMainFrame then
-      EasyMacros.ShowMainFrame()
-    end
-    if EasyMacros.After and EasyMacros.DockBesideSpellbook then
-      EasyMacros.After(0, EasyMacros.DockBesideSpellbook)
-    elseif EasyMacros.DockBesideSpellbook then
-      EasyMacros.DockBesideSpellbook()
+    if EasyMacros.After then
+      EasyMacros.After(0, function()
+        if EasyMacros.LayoutAfterSpellbookToggle then
+          EasyMacros.LayoutAfterSpellbookToggle()
+        end
+      end)
+    elseif EasyMacros.LayoutAfterSpellbookToggle then
+      EasyMacros.LayoutAfterSpellbookToggle()
     end
   end)
   return button

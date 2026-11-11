@@ -142,7 +142,8 @@ function EasyMacros.CreateOrUpdateCharacterMacro(name, body)
 end
 
 -- Call from the Create button OnClick (hardware event).
-function EasyMacros.MakeMacroFromSpell(spell, onDone)
+-- bodyOverride: optional edited macro text from the preview box.
+function EasyMacros.MakeMacroFromSpell(spell, onDone, bodyOverride)
   if type(spell) ~= "table" or type(spell.name) ~= "string" or spell.name == "" then
     EasyMacros.Print("Drop a spell from your spellbook.")
     if onDone then
@@ -158,6 +159,9 @@ function EasyMacros.MakeMacroFromSpell(spell, onDone)
       onDone(nil)
     end
     return nil
+  end
+  if type(bodyOverride) == "string" then
+    preview.body = bodyOverride
   end
 
   local existing = FindCharacterMacro(preview.name)
@@ -182,8 +186,154 @@ function EasyMacros.MakeMacroFromSpell(spell, onDone)
   return result
 end
 
+-- Save body edits for an existing tracked character macro (hardware event).
+function EasyMacros.UpdateManagedMacroBody(name, body, onDone)
+  if EasyMacros.CombatBlocked and EasyMacros.CombatBlocked("Leave combat before editing macros.") then
+    if onDone then
+      onDone(nil)
+    end
+    return nil
+  end
+  if type(name) ~= "string" or name == "" then
+    if onDone then
+      onDone(nil)
+    end
+    return nil
+  end
+  body = body or ""
+
+  local existing = FindCharacterMacro(name)
+  if not existing then
+    EasyMacros.Print("Macro \"" .. name .. "\" was not found.")
+    EasyMacros.UntrackMacro(name)
+    if onDone then
+      onDone(nil)
+    end
+    return nil
+  end
+
+  if existing.body == body then
+    EasyMacros.Print("No changes to \"" .. name .. "\".")
+    local result = {
+      index = existing.index,
+      name = existing.name,
+      body = existing.body,
+      icon = existing.icon,
+      unchanged = true,
+    }
+    if onDone then
+      onDone(result)
+    end
+    return result
+  end
+
+  EditMacro(existing.index, existing.name, existing.icon, body)
+  local tracked = EasyMacros.TrackedMacros()
+  for _, entry in ipairs(tracked) do
+    if entry.name == name then
+      entry.body = body
+      break
+    end
+  end
+  EasyMacros.Print("Saved \"" .. name .. "\".")
+  local result = {
+    index = existing.index,
+    name = existing.name,
+    body = body,
+    icon = existing.icon,
+    unchanged = false,
+  }
+  if onDone then
+    onDone(result)
+  end
+  return result
+end
+
 function EasyMacros.MakeCombatMacroFromSpell(spell, onDone)
   return EasyMacros.MakeMacroFromSpell(spell, onDone)
+end
+
+-- Rename a tracked character macro (hardware event / popup accept).
+function EasyMacros.RenameManagedMacro(oldName, newName, onDone)
+  if EasyMacros.CombatBlocked and EasyMacros.CombatBlocked("Leave combat before renaming macros.") then
+    if onDone then
+      onDone(nil)
+    end
+    return nil
+  end
+  if type(oldName) ~= "string" or oldName == "" then
+    if onDone then
+      onDone(nil)
+    end
+    return nil
+  end
+
+  if type(newName) ~= "string" then
+    newName = ""
+  end
+  newName = newName:match("^%s*(.-)%s*$") or ""
+  if newName == "" then
+    EasyMacros.Print("Enter a macro name.")
+    if onDone then
+      onDone(nil)
+    end
+    return nil
+  end
+  local maxLen = EasyMacros.MACRO_NAME_MAX or 16
+  if #newName > maxLen then
+    newName = newName:sub(1, maxLen)
+  end
+
+  local existing = FindCharacterMacro(oldName)
+  if not existing then
+    EasyMacros.Print("Macro \"" .. oldName .. "\" was not found.")
+    EasyMacros.UntrackMacro(oldName)
+    if onDone then
+      onDone(nil)
+    end
+    return nil
+  end
+
+  if newName == oldName then
+    local result = {
+      index = existing.index,
+      name = existing.name,
+      body = existing.body,
+      icon = existing.icon,
+      unchanged = true,
+    }
+    if onDone then
+      onDone(result)
+    end
+    return result
+  end
+
+  local conflict = FindCharacterMacro(newName)
+  if conflict then
+    EasyMacros.Print("A macro named \"" .. newName .. "\" already exists.")
+    if onDone then
+      onDone(nil)
+    end
+    return nil
+  end
+
+  EditMacro(existing.index, newName, existing.icon, existing.body)
+  if EasyMacros.RenameTrackedMacro then
+    EasyMacros.RenameTrackedMacro(oldName, newName)
+  end
+  EasyMacros.Print("Renamed \"" .. oldName .. "\" to \"" .. newName .. "\".")
+  local result = {
+    index = existing.index,
+    name = newName,
+    body = existing.body,
+    icon = existing.icon,
+    oldName = oldName,
+    unchanged = false,
+  }
+  if onDone then
+    onDone(result)
+  end
+  return result
 end
 
 function EasyMacros.ListManagedMacros()
