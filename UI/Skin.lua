@@ -650,9 +650,6 @@ function EasyMacros.ResetFrameToBlizzardLayout()
   else
     frame:ClearAllPoints()
   end
-  if EasyMacros.LayoutAfterSpellbookToggle then
-    EasyMacros.LayoutAfterSpellbookToggle()
-  end
 end
 
 function EasyMacros.ShowMainFrame()
@@ -709,51 +706,38 @@ local function ResolveSpellbookFrame()
   return PlayerSpellsFrame or SpellBookFrame
 end
 
--- Keep Easy Macros on the right of the spellbook (book on the left).
-function EasyMacros.DockBesideSpellbook()
-  if not EasyMacros.UsesBlizzardLayout() then
-    return
+local function FrameUsesUIPanelLayout(frame)
+  if not frame then
+    return false
   end
+  if frame.GetAttribute and frame:GetAttribute("UIPanelLayout-defined") then
+    return true
+  end
+  local name = frame.GetName and frame:GetName()
+  return name and UIPanelWindows and UIPanelWindows[name] ~= nil
+end
+
+-- Keep Easy Macros on the right of the spellbook (book on the left).
+-- When both frames are UIPanel-managed, do not SetPoint — that fights Blizzard
+-- layout and taints PetActionBar:SetShownBase on Forever (pet or not).
+function EasyMacros.DockBesideSpellbook()
   local frame = EasyMacros.dropFrame
   local book = ResolveSpellbookFrame()
   if not frame or not frame:IsShown() or not book or not book:IsShown() then
     return
   end
+  if EasyMacros.UsesBlizzardLayout and EasyMacros.UsesBlizzardLayout() then
+    if FrameUsesUIPanelLayout(book) and FrameUsesUIPanelLayout(frame) then
+      return
+    end
+  end
   frame:ClearAllPoints()
   frame:SetPoint("TOPLEFT", book, "TOPRIGHT", 12, 0)
 end
 
--- After the secure micro-button toggle: restore us if hidden, prefer book left / us right.
+-- Kept for callers; spellbook secure button no longer invokes this (taint-safe).
 function EasyMacros.LayoutAfterSpellbookToggle()
-  local frame = EasyMacros.dropFrame
-  if not frame then
-    return
-  end
-
-  local book = ResolveSpellbookFrame()
-  local bookOpen = book and book:IsShown()
-
-  if not EasyMacros.UsesBlizzardLayout() then
-    if not frame:IsShown() then
-      EasyMacros.ShowMainFrame()
-    end
-    return
-  end
-
-  if bookOpen then
-    if frame:IsShown() and HideUIPanel and UIPanelWindows and UIPanelWindows[frame:GetName()] then
-      HideUIPanel(frame)
-    end
-    if UpdateUIPanelPositions then
-      pcall(UpdateUIPanelPositions, book)
-    end
-    if ShowUIPanel and UIPanelWindows and UIPanelWindows[frame:GetName()] then
-      ShowUIPanel(frame)
-    else
-      frame:Show()
-    end
+  if not EasyMacros.UsesBlizzardLayout or not EasyMacros.UsesBlizzardLayout() then
     EasyMacros.DockBesideSpellbook()
-  elseif not frame:IsShown() then
-    EasyMacros.ShowMainFrame()
   end
 end

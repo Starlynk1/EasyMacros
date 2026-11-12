@@ -4,7 +4,7 @@
 EasyMacros = EasyMacros or {}
 
 EasyMacros.ADDON_NAME = "EasyMacros"
-EasyMacros.VERSION = "1.0.4"
+EasyMacros.VERSION = "1.0.5"
 EasyMacros.NO_ICON = "INV_MISC_QUESTIONMARK"
 -- Macro names are capped at 16 characters by the client.
 EasyMacros.MACRO_NAME_MAX = 16

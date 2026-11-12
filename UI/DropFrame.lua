@@ -57,8 +57,9 @@ local MODE_CREATE = "create"
 local MODE_SELECTED = "selected"
 local MODE_EDIT = "edit"
 
--- Forward declaration: rename popup accept refreshes the list after layout locals exist.
+-- Forward declarations: popups refresh list / clear selection after layout locals exist.
 local RefreshManagedList
+local ShowEmptyState
 
 local PANEL_BACKDROP = {
   bgFile = "Interface\\ChatFrame\\ChatFrameBackground",
@@ -182,6 +183,17 @@ local function HighlightSelectedListButton(frame)
 end
 
 local RENAME_POPUP = "EASYMACROS_RENAME_MACRO"
+local DELETE_POPUP = "EASYMACROS_DELETE_MACRO"
+
+local function AfterMacroListChange(frame, deletedName)
+  if not frame then
+    return
+  end
+  if deletedName and frame.selectedMacro and frame.selectedMacro.name == deletedName then
+    ShowEmptyState(frame)
+  end
+  RefreshManagedList(frame)
+end
 
 local function EnsureRenamePopup()
   if StaticPopupDialogs and StaticPopupDialogs[RENAME_POPUP] then
@@ -258,6 +270,36 @@ local function EnsureRenamePopup()
   }
 end
 
+local function EnsureDeletePopup()
+  if StaticPopupDialogs and StaticPopupDialogs[DELETE_POPUP] then
+    return
+  end
+  if not StaticPopupDialogs then
+    return
+  end
+  StaticPopupDialogs[DELETE_POPUP] = {
+    text = "Delete macro \"%s\"?",
+    button1 = YES or "Yes",
+    button2 = NO or "No",
+    timeout = 0,
+    whileDead = 1,
+    hideOnEscape = 1,
+    preferredIndex = 3,
+    OnAccept = function(self)
+      local data = self.data or (self.GetData and self:GetData()) or EasyMacros._deleteData
+      if not data or not data.name then
+        return
+      end
+      local owner = data.frame or EasyMacros.dropFrame
+      EasyMacros.DeleteManagedMacro(data.name, function(ok)
+        if ok then
+          AfterMacroListChange(owner, data.name)
+        end
+      end)
+    end,
+  }
+end
+
 local function HideMacroContextMenu(frame)
   if frame and frame.macroContextMenu then
     frame.macroContextMenu:Hide()
@@ -286,15 +328,20 @@ local function EnsureMacroContextMenu(frame)
     menu:SetBackdropBorderColor(0.6, 0.5, 0.3, 1)
   end
 
-  local rename = CreateFrame("Button", nil, menu)
-  rename:SetPoint("TOPLEFT", 6, -6)
-  rename:SetPoint("TOPRIGHT", -6, -6)
-  rename:SetHeight(20)
-  local renameText = rename:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-  renameText:SetPoint("LEFT", 4, 0)
-  renameText:SetText("Rename")
-  rename.text = renameText
-  rename:SetHighlightTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight", "ADD")
+  local function CreateMenuRow(text, topOffset)
+    local button = CreateFrame("Button", nil, menu)
+    button:SetPoint("TOPLEFT", 6, topOffset)
+    button:SetPoint("TOPRIGHT", -6, topOffset)
+    button:SetHeight(20)
+    local label = button:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    label:SetPoint("LEFT", 4, 0)
+    label:SetText(text)
+    button.text = label
+    button:SetHighlightTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight", "ADD")
+    return button
+  end
+
+  local rename = CreateMenuRow("Rename", -6)
   rename:SetScript("OnClick", function()
     local info = menu.macroInfo
     local owner = menu.ownerFrame
@@ -318,7 +365,31 @@ local function EnsureMacroContextMenu(frame)
   end)
   menu.renameButton = rename
 
-  menu:SetSize(110, 32)
+  local delete = CreateMenuRow("Delete", -28)
+  delete:SetScript("OnClick", function()
+    local info = menu.macroInfo
+    local owner = menu.ownerFrame
+    HideMacroContextMenu(frame)
+    if not info or not info.name then
+      return
+    end
+    EnsureDeletePopup()
+    if not StaticPopup_Show then
+      EasyMacros.Print("Delete dialog is unavailable.")
+      return
+    end
+    EasyMacros._deleteData = {
+      name = info.name,
+      frame = owner or frame,
+    }
+    local popup = StaticPopup_Show(DELETE_POPUP, info.name)
+    if popup then
+      popup.data = EasyMacros._deleteData
+    end
+  end)
+  menu.deleteButton = delete
+
+  menu:SetSize(110, 54)
   menu:SetScript("OnShow", function(self)
     self:SetScript("OnUpdate", function(self, elapsed)
       self.hideRemaining = (self.hideRemaining or 4) - elapsed
@@ -348,6 +419,7 @@ local function ShowMacroContextMenu(frame, anchor, info)
     return
   end
   EnsureRenamePopup()
+  EnsureDeletePopup()
   local menu = EnsureMacroContextMenu(frame)
   menu.macroInfo = CopyMacroInfo(info)
   menu.ownerFrame = frame
@@ -437,7 +509,7 @@ local function CreateMacroIconButton(parent, name, size)
   return button
 end
 
-local function ShowEmptyState(frame)
+ShowEmptyState = function(frame)
   frame.editorMode = MODE_EMPTY
   frame.hasPreview = false
   frame.pendingSpell = nil
@@ -670,15 +742,10 @@ local function FitFrameToMacroRows(frame, rows, rowHeight)
   local height = FrameHeightForRows(rows, rowHeight)
   frame:SetHeight(height)
 
-  local name = frame.GetName and frame:GetName()
-  if name and UIPanelWindows and UIPanelWindows[name] then
-    UIPanelWindows[name].height = height
-  end
+  -- Do not mutate UIPanelWindows height while shown — Forever reflows bars and
+  -- can ADDON_ACTION_BLOCKED PetActionBar:SetShownBase under our name.
   if frame._easyMacrosPanelInfo then
     frame._easyMacrosPanelInfo.height = height
-  end
-  if frame:IsShown() and UpdateUIPanelPositions and EasyMacros.UsesBlizzardLayout and EasyMacros.UsesBlizzardLayout() then
-    pcall(UpdateUIPanelPositions, frame)
   end
 end
 

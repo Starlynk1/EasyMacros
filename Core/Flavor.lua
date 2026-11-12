@@ -141,21 +141,6 @@ local function ResolveSpellbookMicroButton()
   return nil
 end
 
-local function PreferSpellbookTabOnMicro(micro)
-  if not micro then
-    return
-  end
-  -- PlayerSpellsMicroButton:OnClick uses suggestedTab; talent alerts leave it
-  -- on ClassTalents and open the talent UI instead of the spellbook.
-  micro.jumpToSpellID = nil
-  local tabs = PlayerSpellsUtil and PlayerSpellsUtil.FrameTabs
-  if tabs and tabs.SpellBook then
-    micro.suggestedTab = tabs.SpellBook
-  else
-    micro.suggestedTab = 3 -- PlayerSpellsUtil.FrameTabs.SpellBook
-  end
-end
-
 local function RegisterSecureClickOnce(button)
   -- AnyUp+AnyDown fires the clickbutton twice (open then instant close).
   -- Match ActionButtonUseKeyDown so we register exactly one direction.
@@ -199,20 +184,10 @@ function EasyMacros.CreateSecureSpellbookButton(parent, name)
   RegisterSecureClickOnce(button)
   button:SetAttribute("type", "click")
   button:SetAttribute("clickbutton", micro)
-  button:SetScript("PreClick", function()
-    PreferSpellbookTabOnMicro(micro)
-  end)
-  button:SetScript("PostClick", function()
-    if EasyMacros.After then
-      EasyMacros.After(0, function()
-        if EasyMacros.LayoutAfterSpellbookToggle then
-          EasyMacros.LayoutAfterSpellbookToggle()
-        end
-      end)
-    elseif EasyMacros.LayoutAfterSpellbookToggle then
-      EasyMacros.LayoutAfterSpellbookToggle()
-    end
-  end)
+  -- No PreClick / PostClick / suggestedTab writes. Any addon code on this click
+  -- (or next-frame layout) taints Forever's PlayerSpells open → PetActionBar
+  -- UpdateVisibility / SetShownBase, even on non-pet classes.
+  -- Docking is left to UIPanelWindows pushable while Blizzard layout is on.
   return button
 end
 

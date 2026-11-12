@@ -336,6 +336,47 @@ function EasyMacros.RenameManagedMacro(oldName, newName, onDone)
   return result
 end
 
+-- Delete a tracked character macro (hardware event / popup accept).
+function EasyMacros.DeleteManagedMacro(name, onDone)
+  if EasyMacros.CombatBlocked and EasyMacros.CombatBlocked("Leave combat before deleting macros.") then
+    if onDone then
+      onDone(false)
+    end
+    return false
+  end
+  if type(name) ~= "string" or name == "" then
+    if onDone then
+      onDone(false)
+    end
+    return false
+  end
+
+  local existing = FindCharacterMacro(name)
+  if existing and DeleteMacro then
+    DeleteMacro(existing.index)
+  elseif not existing then
+    EasyMacros.UntrackMacro(name)
+    EasyMacros.Print("Macro \"" .. name .. "\" was not found.")
+    if onDone then
+      onDone(false)
+    end
+    return false
+  else
+    EasyMacros.Print("DeleteMacro is unavailable.")
+    if onDone then
+      onDone(false)
+    end
+    return false
+  end
+
+  EasyMacros.UntrackMacro(name)
+  EasyMacros.Print("Deleted \"" .. name .. "\".")
+  if onDone then
+    onDone(true)
+  end
+  return true
+end
+
 function EasyMacros.ListManagedMacros()
   local tracked = EasyMacros.TrackedMacros()
   local live = {}
@@ -355,6 +396,14 @@ function EasyMacros.ListManagedMacros()
       EasyMacros.UntrackMacro(entry.name)
     end
   end
+  table.sort(live, function(a, b)
+    local left = (a.name or ""):lower()
+    local right = (b.name or ""):lower()
+    if left == right then
+      return (a.name or "") < (b.name or "")
+    end
+    return left < right
+  end)
   return live
 end
 
